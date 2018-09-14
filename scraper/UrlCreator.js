@@ -1,4 +1,13 @@
-
+/*
+ * UrlCreator.js
+ * Description: This file contains the declaration/definition of the UrlCreator
+ *              class. The purpose of the class is to use the following
+ *              arguments and combine them into a valid URL.
+ *                baseUrl = the protocol + hostname + path
+ *                queryKeyVals = an object containing key : value pairs for the
+ *                               query parameters to add onto the end of the
+ *                               URL
+ */
 
 class UrlCreator {
   constructor(baseUrl, queryKeyVals) {
@@ -33,13 +42,3 @@ class UrlCreator {
 
 // export default UrlCreator;
 module.exports = UrlCreator;
-
-// const params = {
-//   q: 'jobTitle',
-//   l: 'location',
-//   jk: 'jobKey',
-// };
-
-// const testUrl = new UrlCreator('https://www.indeed.com', params);
-// const testSearchUrl = testUrl.combinedUrlAndQuery();
-// console.log(testSearchUrl);
