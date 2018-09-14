@@ -4,11 +4,9 @@
 
 // import { UrlCreator } from './UrlCreator';
 
+const cheerio = require('cheerio');
 const UrlCreator = require('./UrlCreator');
 const util = require('./scraperUtility');
-const fetch = require('node-fetch');
-const fs = require('fs');
-const cheerio = require('cheerio');
 
 if (process.argv.length !== 4) {
   throw new Error('Invalid usage, try again. node main_scraper.js "job title" "location".');
@@ -44,19 +42,6 @@ const getJobSearchUrls = function generateArrayOfJobSearchPages(title, loc, url)
 };
 
 const searchesToRequest = getJobSearchUrls(jobTitle, location, baseUrl);
-
-// Take Array of URLs, scrape info off them from each posting. Populates object of job info
-
-// const asyncGetHtml = async function asyncFetchtoHtml(url) {
-//   try {
-//     const response = await fetch(url);
-//     const responseHtml = await response.text();
-//     return responseHtml;
-//   } catch (e) {
-//     throw new Error('Fetch failed.');
-//   }
-// };
-
 
 const scrapeJobInfo = function scrapeJobSearchResults(html) {
   const scrubCompany = function scrubScrapedCompanyName(companyString) {
@@ -98,24 +83,45 @@ const getJobInfo = async function requestAndScrapeInfo(singleSearchUrl) {
 };
 
 let globalJobInfo = [];
-let scraperIdx = 1;
-const numPagesToScrape = 3;
+// let scraperIdx = 1;
+// const numPagesToScrape = 3;
 
-const firstStageScrape = function firstStageScrapeAndCombineResults(allSearchUrls) {
-  getJobInfo(allSearchUrls[scraperIdx])
-    .then((info) => {
-      globalJobInfo = globalJobInfo.concat(info);
-      scraperIdx += 1;
-    })
-    .then(() => {
-      if (scraperIdx < numPagesToScrape) {
-        firstStageScrape(allSearchUrls);
-      }
-    });
+// const firstStageScrape = async function firstStageScrapeAndCombineResults(allSearchUrls) {
+//   getJobInfo(allSearchUrls[scraperIdx])
+//     .then((info) => {
+//       globalJobInfo = globalJobInfo.concat(info);
+//       scraperIdx += 1;
+//     })
+//     .then(() => {
+//       if (scraperIdx < numPagesToScrape) {
+//         firstStageScrape(allSearchUrls);
+//       }
+//     });
+// };
+
+const firstStageScrape = async function firstStageScrapeAndCombineResults(allSearchUrls) {
+  let combinedInfo = [];
+
+
+  // allSearchUrls.forEach(async (searchUrl) => {
+  //   const searchPageInfo = await getJobInfo(searchUrl);
+  //   combinedInfo = combinedInfo.concat(await searchPageInfo);
+  // });
+
+  for (const searchUrl of allSearchUrls) {
+    const searchPageInfo = await getJobInfo(searchUrl);
+    combinedInfo = combinedInfo.concat(await searchPageInfo);
+    await setTimeout(null, 2000);
+  }
+  return combinedInfo;
 };
 
-firstStageScrape(searchesToRequest);
-setTimeout(() => console.log(globalJobInfo), 2000);
+firstStageScrape(searchesToRequest)
+  .then((initialInfo) => {
+    globalJobInfo = initialInfo;
+    console.log(globalJobInfo);
+  });
+// setTimeout(() => console.log(globalJobInfo), 2000);
 
 // For each job posting URL, visit and scrape job name and skills. Populate object of job info
 
