@@ -5,6 +5,7 @@
 // import { UrlCreator } from './UrlCreator';
 
 const UrlCreator = require('./UrlCreator');
+const util = require('./scraperUtility');
 const fetch = require('node-fetch');
 const fs = require('fs');
 const cheerio = require('cheerio');
@@ -12,6 +13,8 @@ const cheerio = require('cheerio');
 if (process.argv.length !== 4) {
   throw new Error('Invalid usage, try again. node main_scraper.js "job title" "location".');
 }
+
+// Generate URLs to search and scrape
 
 const jobTitle = process.argv[2];
 const location = process.argv[3];
@@ -42,18 +45,17 @@ const getJobSearchUrls = function generateArrayOfJobSearchPages(title, loc, url)
 
 const searchesToRequest = getJobSearchUrls(jobTitle, location, baseUrl);
 
-
 // Take Array of URLs, scrape info off them from each posting. Populates object of job info
 
-const asyncGetHtml = async function asyncFetchtoHtml(url) {
-  try {
-    const response = await fetch(url);
-    const responseHtml = await response.text();
-    return responseHtml;
-  } catch (e) {
-    throw new Error('Fetch failed.');
-  }
-};
+// const asyncGetHtml = async function asyncFetchtoHtml(url) {
+//   try {
+//     const response = await fetch(url);
+//     const responseHtml = await response.text();
+//     return responseHtml;
+//   } catch (e) {
+//     throw new Error('Fetch failed.');
+//   }
+// };
 
 
 const scrapeJobInfo = function scrapeJobSearchResults(html) {
@@ -90,7 +92,7 @@ const scrapeJobInfo = function scrapeJobSearchResults(html) {
 
 const getJobInfo = async function requestAndScrapeInfo(singleSearchUrl) {
   // return scrapeJobInfo(await asyncGetHtml(searchUrl));
-  const jobInfoHtml = await asyncGetHtml(singleSearchUrl);
+  const jobInfoHtml = await util.asyncGetHtml(singleSearchUrl);
   const jobInfo = scrapeJobInfo(await jobInfoHtml);
   return jobInfo;
 };
@@ -113,7 +115,14 @@ const firstStageScrape = function firstStageScrapeAndCombineResults(allSearchUrl
 };
 
 firstStageScrape(searchesToRequest);
-setTimeout(() => console.log(globalJobInfo), 3000);
+setTimeout(() => console.log(globalJobInfo), 2000);
+
+// For each job posting URL, visit and scrape job name and skills. Populate object of job info
+
+
+
+
+
 // const scrapeJobInfo = async function scrapeJobSearchResults(urls) {
 //   const requestsToMake = searchesToRequest.length;
 
@@ -157,6 +166,5 @@ setTimeout(() => console.log(globalJobInfo), 3000);
 
 
 
-// For each job posting URL, visit and scrape job name and skills. Populate object of job info
 
 
