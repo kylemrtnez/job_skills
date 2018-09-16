@@ -31,7 +31,7 @@ const getJobSearchUrls = function generateArrayOfJobSearchPages(title, loc, url)
   const urlInfo = new UrlCreator(url, queryData);
   jobSearchLinks.push(urlInfo.combinedUrlAndQuery());
 
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 2; i += 1) {
     searchPageIdx += 10;
     queryData.start = searchPageIdx;
     urlInfo.setQueryKeyVals(queryData);
@@ -102,75 +102,38 @@ let globalJobInfo = [];
 const firstStageScrape = async function firstStageScrapeAndCombineResults(allSearchUrls) {
   let combinedInfo = [];
 
-
+  // asynchronous
   // allSearchUrls.forEach(async (searchUrl) => {
   //   const searchPageInfo = await getJobInfo(searchUrl);
   //   combinedInfo = combinedInfo.concat(await searchPageInfo);
   // });
 
+  // keep this synchronous to not bomb the servers
   for (const searchUrl of allSearchUrls) {
     const searchPageInfo = await getJobInfo(searchUrl);
     combinedInfo = combinedInfo.concat(await searchPageInfo);
-    await setTimeout(null, 2000);
+    await setTimeout(() => null, 2000);
   }
   return combinedInfo;
 };
 
 firstStageScrape(searchesToRequest)
   .then((initialInfo) => {
-    globalJobInfo = initialInfo;
-    console.log(globalJobInfo);
+    const infoWithJobPostUrls = initialInfo.map((obj) => {
+      const baseJobPostUrl = 'https://www.indeed.com/viewjob';
+      const queryPair = {
+        jk: obj.jobKey,
+      };
+
+      const jobPostUrlInfo = new UrlCreator(baseJobPostUrl, queryPair);
+      return Object.assign(
+        { jobPostUrl: jobPostUrlInfo.combinedUrlAndQuery() },
+        obj,
+      );
+    });
+    console.log(infoWithJobPostUrls);
   });
 // setTimeout(() => console.log(globalJobInfo), 2000);
 
 // For each job posting URL, visit and scrape job name and skills. Populate object of job info
-
-
-
-
-
-// const scrapeJobInfo = async function scrapeJobSearchResults(urls) {
-//   const requestsToMake = searchesToRequest.length;
-
-//   fetch(url)
-//     .then(res => res.text())
-//     .then((html) => {
-//       const $ = cheerio.load(html);
-//       const indeedJobKeyField = 'data-jk';
-//       const indeedLocationHtmlClass = '.location';
-
-//       const selectHtmlBy = function selectHtmlDataBySelector(selector) {
-//         return $(`${selector}`);
-//       };
-
-//       const rawJobInfo = selectHtmlBy(`[${indeedJobKeyField}]`);
-//       // console.log(rawJobInfo);
-
-//       const rawLocationInfo = selectHtmlBy(indeedLocationHtmlClass);
-//       console.log(rawLocationInfo.contents().text());
-
-//       // extract job keys to create specific job page links
-//       rawJobInfo.each((i, element) => {
-//         extractedJobInfo.push(element.attribs[indeedJobKeyField]);
-//       });
-
-//       // console.log(extractedJobInfo);
-//     })
-//     // .then(() => {
-//     //   if (idx < 3) {
-//     //     idx += 1;
-//     //     const newCrawlVal = crawlVal + 10;
-//     //     const nextUrl = crawlForward(url, newCrawlVal);
-//     //     console.log(nextUrl);
-//     //     getJobLinks(nextUrl, newCrawlVal);
-//     //   }
-//     // })
-//     .catch(error => console.error(error));
-// };
-// console.log(searchesToRequest);
-
-
-
-
-
 
