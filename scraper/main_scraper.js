@@ -117,20 +117,23 @@ const firstStageScrape = async function firstStageScrapeAndCombineResults(allSea
   return combinedInfo;
 };
 
+const getJobPostUrl = function createJobPostUrl(jobInfoObj) {
+  const baseJobPostUrl = 'https://www.indeed.com/viewjob';
+  const queryPair = {
+    jk: jobInfoObj.jobKey,
+  };
+
+  const jobPostUrlInfo = new UrlCreator(baseJobPostUrl, queryPair);
+  const modifiedJobObj = Object.assign(
+    { jobPostUrl: jobPostUrlInfo.combinedUrlAndQuery() },
+    jobInfoObj,
+  );
+  return modifiedJobObj;
+};
+
 firstStageScrape(searchesToRequest)
   .then((initialInfo) => {
-    const infoWithJobPostUrls = initialInfo.map((obj) => {
-      const baseJobPostUrl = 'https://www.indeed.com/viewjob';
-      const queryPair = {
-        jk: obj.jobKey,
-      };
-
-      const jobPostUrlInfo = new UrlCreator(baseJobPostUrl, queryPair);
-      return Object.assign(
-        { jobPostUrl: jobPostUrlInfo.combinedUrlAndQuery() },
-        obj,
-      );
-    });
+    const infoWithJobPostUrls = initialInfo.map(getJobPostUrl);
     console.log(infoWithJobPostUrls);
   });
 // setTimeout(() => console.log(globalJobInfo), 2000);
