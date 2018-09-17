@@ -31,7 +31,7 @@ const getJobSearchUrls = function generateArrayOfJobSearchPages(title, loc, url)
   const urlInfo = new UrlCreator(url, queryData);
   jobSearchLinks.push(urlInfo.combinedUrlAndQuery());
 
-  for (let i = 0; i < 2; i += 1) {
+  for (let i = 0; i < 1; i += 1) {
     searchPageIdx += 10;
     queryData.start = searchPageIdx;
     urlInfo.setQueryKeyVals(queryData);
@@ -110,9 +110,9 @@ const firstStageScrape = async function firstStageScrapeAndCombineResults(allSea
 
   // keep this synchronous to not bomb the servers
   for (const searchUrl of allSearchUrls) {
+    await util.wait(2000);
     const searchPageInfo = await getJobInfo(searchUrl);
     combinedInfo = combinedInfo.concat(await searchPageInfo);
-    await setTimeout(() => null, 2000);
   }
   return combinedInfo;
 };
@@ -128,13 +128,64 @@ const getJobPostUrl = function createJobPostUrl(jobInfoObj) {
     { jobPostUrl: jobPostUrlInfo.combinedUrlAndQuery() },
     jobInfoObj,
   );
+
   return modifiedJobObj;
 };
+
+const secondStageScrape = async function secondStageScrapeNeedsNewName(jobInfoObj) {
+  const jobPostHtml = await util.asyncGetHtml(jobInfoObj.jobPostUrl);
+  const $ = cheerio.load(await jobPostHtml);
+
+  const secondaryJobInfo = {};
+  const jobSkills = [];
+  // SKILLS as single strings in a loop
+  await $('.jobsearch-DesiredExperience-item').each((i, ele) => {
+    jobSkills.push($(ele).text());
+  });
+  secondaryJobInfo.skills = jobSkills;
+
+
+  secondaryJobInfo.positionTitle = $('.jobsearch-JobInfoHeader-title').text();
+  secondaryJobInfo.date = $('.jobsearch-JobMetadataFooter').text();
+
+  return Object.assign(secondaryJobInfo, jobInfoObj);
+};
+
+let delay = 0;
+
+
 
 firstStageScrape(searchesToRequest)
   .then((initialInfo) => {
     const infoWithJobPostUrls = initialInfo.map(getJobPostUrl);
-    console.log(infoWithJobPostUrls);
+
+    const completedJobInfo = infoWithJobPostUrls.map(async (obj) => {
+      delay += 15000;
+      await util.wait(delay);
+      const secondaryJobInfo = await secondStageScrape(obj);
+
+      // const jobPostHtml = await util.asyncGetHtml(obj.jobPostUrl);
+      // const $ = cheerio.load(await jobPostHtml);
+
+      // const secondaryJobInfo = {};
+      // const jobSkills = [];
+      // // SKILLS as single strings in a loop
+      // await $('.jobsearch-DesiredExperience-item').each((i, ele) => {
+      //   jobSkills.push($(ele).text());
+      // });
+      // secondaryJobInfo.skills = jobSkills;
+
+
+      // secondaryJobInfo.positionTitle = $('.jobsearch-JobInfoHeader-title').text();
+      // secondaryJobInfo.date = $('.jobsearch-JobMetadataFooter').text();
+
+      return Object.assign(await secondaryJobInfo, obj);
+    });
+
+    // console.log(infoWithJobPostUrls);
+    return Promise.all(completedJobInfo);
+  }).then((completedInfo) => {
+    console.log(completedInfo);
   });
 // setTimeout(() => console.log(globalJobInfo), 2000);
 
