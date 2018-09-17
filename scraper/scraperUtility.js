@@ -10,4 +10,5 @@ const asyncGetHtml = async function asyncFetchtoHtml(url) {
   }
 };
 
-module.exports = { asyncGetHtml };
+const wait = (ms, ...args) => new Promise(resolve => setTimeout(resolve, ms, ...args));
+module.exports = { asyncGetHtml, wait };
