@@ -1,8 +1,8 @@
 const fetch = require('node-fetch');
 
-const asyncGetHtml = async function asyncFetchtoHtml(url) {
+const asyncGetHtml = async function asyncFetchtoHtml(url, headers) {
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, headers);
     const responseHtml = await response.text();
     return responseHtml;
   } catch (e) {
@@ -11,4 +11,5 @@ const asyncGetHtml = async function asyncFetchtoHtml(url) {
 };
 
 const wait = (ms, ...args) => new Promise(resolve => setTimeout(resolve, ms, ...args));
+
 module.exports = { asyncGetHtml, wait };
