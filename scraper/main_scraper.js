@@ -1,5 +1,5 @@
 /*
- * Usage: node scraper.js 'job title' 'location'
+ * Usage: node scraper.js 'job title' 'location' [integer]
  */
 
 // import { UrlCreator } from './UrlCreator';
@@ -8,30 +8,35 @@ const cheerio = require('cheerio');
 const UrlCreator = require('./UrlCreator');
 const util = require('./scraperUtility');
 
-if (process.argv.length !== 4) {
-  throw new Error('Invalid usage, try again. node main_scraper.js "job title" "location".');
+if (process.argv.length < 4 || process.argv.length > 5) {
+  throw new Error('Invalid usage, try again. node main_scraper.js "job title" "location" [integer].');
 }
 
 // Generate URLs to search and scrape
 
 const jobTitle = process.argv[2];
 const location = process.argv[3];
+const pagesToFetch = process.argv[4] || 4;
 const baseUrl = 'https://www.indeed.com/jobs';
 
-const getJobSearchUrls = function generateArrayOfJobSearchPages(title, loc, url) {
+const getJobSearchUrls = function generateArrayOfJobSearchPages(title, loc, url, pages) {
   const jobSearchLinks = [];
   let searchPageIdx = 0;
 
   const queryData = {
     q: title.split(' ').join('+'),
     l: loc.split(' ').join('+'),
+    sort: 'date',
+    explvl: 'entry_level',
     start: searchPageIdx,
   };
 
+  // initial page
   const urlInfo = new UrlCreator(url, queryData);
   jobSearchLinks.push(urlInfo.combinedUrlAndQuery());
 
-  for (let i = 0; i < 1; i += 1) {
+  // subsequent pages
+  for (let i = 0; i < pages; i += 1) {
     searchPageIdx += 10;
     queryData.start = searchPageIdx;
     urlInfo.setQueryKeyVals(queryData);
@@ -41,7 +46,7 @@ const getJobSearchUrls = function generateArrayOfJobSearchPages(title, loc, url)
   return jobSearchLinks;
 };
 
-const searchesToRequest = getJobSearchUrls(jobTitle, location, baseUrl);
+const searchesToRequest = getJobSearchUrls(jobTitle, location, baseUrl, pagesToFetch);
 
 const scrapeJobInfo = function scrapeJobSearchResults(html) {
   const scrubCompany = function scrubScrapedCompanyName(companyString) {
@@ -50,7 +55,23 @@ const scrapeJobInfo = function scrapeJobSearchResults(html) {
 
   const scrubLocation = function scrubScrapedLocation(locationString) {
     const locationRe = /^.*[A-Z]{2}/;
-    return locationString.trim().match(locationRe)[0];
+    let scrubbed;
+
+    try {
+      scrubbed = locationString.trim().match(locationRe)[0];
+    } catch (e) {
+      scrubbed = `SCRUB ERROR - ${locationString.trim()}`;
+    }
+
+    return scrubbed;
+  };
+
+  const scrubDate = function scrubScrapedDate(dateString) {
+    return dateString.trim();
+  };
+
+  const scrubTitle = function scrubScrapedPositionTitle(titleString) {
+    return titleString.trim();
   };
 
   const arrayOfScrapedInfo = [];
@@ -58,16 +79,23 @@ const scrapeJobInfo = function scrapeJobSearchResults(html) {
   const indeedJobKeyField = 'data-jk';
   const indeedLocationHtmlClass = '.location';
   const indeedCompanyNameHtmlClass = '.company';
+  const indeedDateHtmlClass = '.date';
 
   $(`[${indeedJobKeyField}]`).each((i, element) => {
     const jobStuff = {};
     jobStuff.jobKey = element.attribs[indeedJobKeyField];
 
-    const rawLocation = $(element).find(indeedLocationHtmlClass).text()
+    const rawLocation = $(element).find(indeedLocationHtmlClass).text();
     jobStuff.location = scrubLocation(rawLocation);
 
-    const rawCompanyName = $(element).find(indeedCompanyNameHtmlClass).text()
+    const rawCompanyName = $(element).find(indeedCompanyNameHtmlClass).text();
     jobStuff.companyName = scrubCompany(rawCompanyName);
+
+    const rawDate = $(element).find(indeedDateHtmlClass).text();
+    jobStuff.date = scrubDate(rawDate);
+
+    const rawTitle = $(element).find('a[title]')[0].attribs.title;
+    jobStuff.positionTitle = scrubTitle(rawTitle);
 
     arrayOfScrapedInfo.push(jobStuff);
   });
@@ -76,37 +104,28 @@ const scrapeJobInfo = function scrapeJobSearchResults(html) {
 };
 
 const getJobInfo = async function requestAndScrapeInfo(singleSearchUrl) {
-  // return scrapeJobInfo(await asyncGetHtml(searchUrl));
-  const jobInfoHtml = await util.asyncGetHtml(singleSearchUrl);
-  const jobInfo = scrapeJobInfo(await jobInfoHtml);
+  const searchPageHeaders = {
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Accept-Language': 'en-US,en;q=0.9',
+    referer: 'https://www.indeed.com/',
+    'Upgrade-Insecure-Requests': 1,
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.81 Safari/537.36',
+  };
+
+  let jobInfo = null;
+  try {
+    const jobInfoHtml = await util.asyncGetHtml(singleSearchUrl, searchPageHeaders);
+    jobInfo = scrapeJobInfo(await jobInfoHtml);
+  } catch (e) {
+    throw new Error(`Request and scrape failed.\n${e}`);
+  }
+
   return jobInfo;
 };
 
-let globalJobInfo = [];
-// let scraperIdx = 1;
-// const numPagesToScrape = 3;
-
-// const firstStageScrape = async function firstStageScrapeAndCombineResults(allSearchUrls) {
-//   getJobInfo(allSearchUrls[scraperIdx])
-//     .then((info) => {
-//       globalJobInfo = globalJobInfo.concat(info);
-//       scraperIdx += 1;
-//     })
-//     .then(() => {
-//       if (scraperIdx < numPagesToScrape) {
-//         firstStageScrape(allSearchUrls);
-//       }
-//     });
-// };
-
 const firstStageScrape = async function firstStageScrapeAndCombineResults(allSearchUrls) {
   let combinedInfo = [];
-
-  // asynchronous
-  // allSearchUrls.forEach(async (searchUrl) => {
-  //   const searchPageInfo = await getJobInfo(searchUrl);
-  //   combinedInfo = combinedInfo.concat(await searchPageInfo);
-  // });
 
   // keep this synchronous to not bomb the servers
   for (const searchUrl of allSearchUrls) {
@@ -115,6 +134,12 @@ const firstStageScrape = async function firstStageScrapeAndCombineResults(allSea
     combinedInfo = combinedInfo.concat(await searchPageInfo);
   }
   return combinedInfo;
+
+  // asynchronous
+  // allSearchUrls.forEach(async (searchUrl) => {
+  //   const searchPageInfo = await getJobInfo(searchUrl);
+  //   combinedInfo = combinedInfo.concat(await searchPageInfo);
+  // });
 };
 
 const getJobPostUrl = function createJobPostUrl(jobInfoObj) {
@@ -132,62 +157,8 @@ const getJobPostUrl = function createJobPostUrl(jobInfoObj) {
   return modifiedJobObj;
 };
 
-const secondStageScrape = async function secondStageScrapeNeedsNewName(jobInfoObj) {
-  const jobPostHtml = await util.asyncGetHtml(jobInfoObj.jobPostUrl);
-  const $ = cheerio.load(await jobPostHtml);
-
-  const secondaryJobInfo = {};
-  const jobSkills = [];
-  // SKILLS as single strings in a loop
-  await $('.jobsearch-DesiredExperience-item').each((i, ele) => {
-    jobSkills.push($(ele).text());
-  });
-  secondaryJobInfo.skills = jobSkills;
-
-
-  secondaryJobInfo.positionTitle = $('.jobsearch-JobInfoHeader-title').text();
-  secondaryJobInfo.date = $('.jobsearch-JobMetadataFooter').text();
-
-  return Object.assign(secondaryJobInfo, jobInfoObj);
-};
-
-let delay = 0;
-
-
-
 firstStageScrape(searchesToRequest)
   .then((initialInfo) => {
     const infoWithJobPostUrls = initialInfo.map(getJobPostUrl);
-
-    const completedJobInfo = infoWithJobPostUrls.map(async (obj) => {
-      delay += 15000;
-      await util.wait(delay);
-      const secondaryJobInfo = await secondStageScrape(obj);
-
-      // const jobPostHtml = await util.asyncGetHtml(obj.jobPostUrl);
-      // const $ = cheerio.load(await jobPostHtml);
-
-      // const secondaryJobInfo = {};
-      // const jobSkills = [];
-      // // SKILLS as single strings in a loop
-      // await $('.jobsearch-DesiredExperience-item').each((i, ele) => {
-      //   jobSkills.push($(ele).text());
-      // });
-      // secondaryJobInfo.skills = jobSkills;
-
-
-      // secondaryJobInfo.positionTitle = $('.jobsearch-JobInfoHeader-title').text();
-      // secondaryJobInfo.date = $('.jobsearch-JobMetadataFooter').text();
-
-      return Object.assign(await secondaryJobInfo, obj);
-    });
-
-    // console.log(infoWithJobPostUrls);
-    return Promise.all(completedJobInfo);
-  }).then((completedInfo) => {
-    console.log(completedInfo);
+    console.log(infoWithJobPostUrls);
   });
-// setTimeout(() => console.log(globalJobInfo), 2000);
-
-// For each job posting URL, visit and scrape job name and skills. Populate object of job info
-
