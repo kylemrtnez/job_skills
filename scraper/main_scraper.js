@@ -2,24 +2,12 @@
  * Usage: node scraper.js 'job title' 'location' [integer]
  */
 
-// import { UrlCreator } from './UrlCreator';
-
 const cheerio = require('cheerio');
+const fetch = require('node-fetch');
 const UrlCreator = require('./UrlCreator');
 const util = require('./scraperUtility');
 
-if (process.argv.length < 4 || process.argv.length > 5) {
-  throw new Error('Invalid usage, try again. node main_scraper.js "job title" "location" [integer].');
-}
-
-// Generate URLs to search and scrape
-
-const jobTitle = process.argv[2];
-const location = process.argv[3];
-const pagesToFetch = process.argv[4] || 4;
-const baseUrl = 'https://www.indeed.com/jobs';
-
-const getJobSearchUrls = function generateArrayOfJobSearchPages(title, loc, url, pages) {
+const getJobSearchUrls = function generateArrayOfJobSearchUrls(title, loc, url, pages) {
   const jobSearchLinks = [];
   let searchPageIdx = 0;
 
@@ -45,8 +33,6 @@ const getJobSearchUrls = function generateArrayOfJobSearchPages(title, loc, url,
 
   return jobSearchLinks;
 };
-
-const searchesToRequest = getJobSearchUrls(jobTitle, location, baseUrl, pagesToFetch);
 
 const scrapeJobInfo = function scrapeJobSearchResults(html) {
   const scrubCompany = function scrubScrapedCompanyName(companyString) {
@@ -103,7 +89,7 @@ const scrapeJobInfo = function scrapeJobSearchResults(html) {
   return arrayOfScrapedInfo;
 };
 
-const getJobInfo = async function requestAndScrapeInfo(singleSearchUrl) {
+const setIndeedSearchHeaders = function setRequestHeaders() {
   const searchPageHeaders = {
     Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
     'Accept-Encoding': 'gzip, deflate, br',
@@ -113,9 +99,16 @@ const getJobInfo = async function requestAndScrapeInfo(singleSearchUrl) {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.81 Safari/537.36',
   };
 
+  return new fetch.Headers(searchPageHeaders);
+};
+
+const getJobInfo = async function requestAndScrapeInfo(oneSearchUrl) {
+  const searchPageHeaders = setIndeedSearchHeaders();
+
   let jobInfo = null;
+
   try {
-    const jobInfoHtml = await util.asyncGetHtml(singleSearchUrl, searchPageHeaders);
+    const jobInfoHtml = await util.asyncGetHtml(oneSearchUrl, searchPageHeaders);
     jobInfo = scrapeJobInfo(await jobInfoHtml);
   } catch (e) {
     throw new Error(`Request and scrape failed.\n${e}`);
@@ -157,6 +150,17 @@ const getJobPostUrl = function createJobPostUrl(jobInfoObj) {
   return modifiedJobObj;
 };
 
+if (process.argv.length < 4 || process.argv.length > 5) {
+  throw new Error('Invalid usage, try again. node main_scraper.js "job title" "location" [integer].');
+}
+
+const jobTitle = process.argv[2];
+const location = process.argv[3];
+const pagesToFetch = process.argv[4] || 4;
+const baseUrl = 'https://www.indeed.com/jobs';
+
+
+const searchesToRequest = getJobSearchUrls(jobTitle, location, baseUrl, pagesToFetch);
 firstStageScrape(searchesToRequest)
   .then((initialInfo) => {
     const infoWithJobPostUrls = initialInfo.map(getJobPostUrl);
