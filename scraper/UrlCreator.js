@@ -40,5 +40,4 @@ class UrlCreator {
   }
 }
 
-// export default UrlCreator;
 module.exports = UrlCreator;
