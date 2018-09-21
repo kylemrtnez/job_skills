@@ -16,13 +16,17 @@ class ScraperRequestHeaders {
       return Math.floor(Math.random() * (intMax - intMin)) + intMin;
     };
 
-    let userAgents;
+    const loadUserAgents = function loadUserAgentsFromTxtFile(txtfile) {
+      let agents;
+      try {
+        agents = fs.readFileSync(txtfile);
+      } catch (e) {
+        throw new Error(`Unable to read UA file ${txtfile}`);
+      }
+      return agents;
+    };
 
-    try {
-      userAgents = fs.readFileSync(this.uaTxtFile);
-    } catch (e) {
-      throw new Error(`Unable to read UA file ${this.uaTxtFile}`);
-    }
+    const userAgents = loadUserAgents(this.uaTxtFile);
 
     const maxIdx = userAgents.length - 1;
     const randomIdx = getRandomInt(0, maxIdx);
