@@ -25,9 +25,6 @@ describe('Test loading user agents from file', () => {
   it('should load 10 user agents', () => {
     const testHeaderObj = new ScraperRequestHeaders({}, UA_TXT_FILE);
     const loadedFromFile = testHeaderObj.loadUserAgentsFromTxtFile();
-    // TODO remove this
-    console.log(loadedFromFile);
-
     loadedFromFile.length.should.equal(10);
   });
 
